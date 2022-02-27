@@ -1,0 +1,162 @@
+---
+title: "Speech Analysis"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy = T, echo = FALSE, warning = F, message = F)
+```
+
+```{r library and data}
+library(syuzhet)
+library(ggplot2)
+library(dplyr)
+library(wordcloud)
+library(SnowballC)
+library(gridExtra)
+library(stringr)
+library(readr)
+library(tidytext)
+library(tidyverse)
+library(tm)
+library(qdap)
+library(plotly)
+content<- read_file("I_Have_A_Dream.txt")
+content2 <- read_file("The awakening.txt")
+```
+
+## Frequency of words
+```{r freq}
+cleancont <- rm_stopwords(content2, Top200Words)
+frequency <- all_words(cleancont, "")
+freqss<- frequency
+freq_s<- freqss%>%
+  group_by(FREQ)
+
+freq_ss <- arrange(freq_s, desc(FREQ))%>%
+  head(7)
+
+bar<- ggplot(freq_ss)+
+  geom_bar(aes(x = WORD, y = FREQ, fill = WORD), stat = "identity")+
+  theme(aspect.ratio = 1) +
+  labs(x = NULL, y = NULL)
+bark<- bar + coord_polar()
+bark
+
+```
+
+## Sentence length
+
+```{r sentence length}
+dfsent <- tibble(
+  Sent = get_sentences(content),
+  Number = seq_along(Sent)
+)
+df_sentencelength<- dfsent%>%
+  mutate(`Sentence length` = wc(dfsent$Sent))
+head(df_sentencelength)
+
+ggplot_sentence_length<- ggplot(df_sentencelength)+
+  geom_line(aes(x = Number, y = `Sentence length`))
+ggplot_sentence_length
+
+library(plotly)
+ggplotly(ggplot_sentence_length)
+```
+
+The mean value & SD of the sentence length is:
+```{r sent length}
+tibble(
+mean = mean(df_sentencelength$`Sentence length`),
+StandardDiviation = sd(df_sentencelength$`Sentence length`)
+)
+```
+
+
+## Syllable count per word
+
+```{r}
+word<- str_split(content, boundary("word"))[[1]]
+several<- sort(table(word), decreasing=T)
+syl <- as.data.frame(several) %>%
+  mutate(syllable = syllable_sum(word))
+head(syl)
+```
+
+
+## Frequency of use of adj, adv, gerunds, participles, infinitives, prepositions
+```{r}
+
+```
+
+## punctuation type and frequency
+
+```{r}
+tibble(
+  Comma = str_count(content, ","),
+  Semicolons = str_count(content, ";"),
+  Colons = str_count(content, ":"),
+  Dashes = str_count(content, "-"),
+  QuestionMarks = sum(gregexpr("[?]", content)[[1]] > 0),
+  Exclamation = sum(gregexpr("[!]", content)[[1]] > 0),
+  Parenthese = sum(gregexpr("[(]", content)[[1]] > 0)
+)
+```
+
+
+## Overuse of comma
+
+```{r}
+CommaSentence <- dfsent%>%
+  select(Sent)
+CommaSent <- tibble(
+  Sent = get_sentences(content),
+  Number = seq_along(Sent),
+  Comma = str_count(CommaSentence[[1]], ",")
+)
+Com<- ggplot(CommaSent)+
+  geom_point(aes(x = Number, y = Comma))
+Com
+
+df_sentencelength
+
+
+```
+t-test
+boxp for each file (length of sent, word, overuse of comma)
+should be able to compare.
+
+
+```{r}
+ggplot(CommaSent) +
+  geom_bar(aes(x = Comma, stat = "identity"))
+```
+
+```{r}
+dfsent2 <- tibble(
+  Sent = get_sentences(content2),
+  Number = seq_along(Sent)
+)
+CommaSentence2 <- dfsent2%>%
+  select(Sent)
+CommaSent2 <- tibble(
+  Sent = get_sentences(content2),
+  Number = seq_along(Sent),
+  Comma = str_count(CommaSentence2[[1]], ",")
+)
+
+CommaSent$Passage <- 1
+CommaSent2$Passage <- 2
+
+df <- rbind(CommaSent, CommaSent2)
+
+ggplot(df) +
+  geom_boxplot(aes(x = factor(Passage), y = Comma, fill = factor(Passage)))
+ggplotly()
+
+wilcox.test(CommaSent$Comma, CommaSent2$Comma)
+```
+
+The p-value is greater than 0.05, then we fail to reject hypothesis H0 of statistical difference in the means of two groups.
