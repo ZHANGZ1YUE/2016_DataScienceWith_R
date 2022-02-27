@@ -1,0 +1,215 @@
+---
+title: "Air quality analysis and the correlation of car  accident"
+author: "Frank Zhang"
+date: "October 30, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+  knitr::opts_chunk$set(echo = TRUE, cache = T, warning = F, message = F, cache.lazy = FALSE)
+```
+
+## Data description
+Air quality data collected at outdoor monitors across the United States, Puerto Rico, and the U.S. Virgin Islands. The data comes primarily from the AOS data base. (Among which we chose the data of Ozone and SO2.) The data is downloaded in
+[Air_Quality](https://aqsdr1.epa.gov/aqsweb/aqstmp/airdata/download_files.html#Raw) and 
+[Car_Accident](http://accidentdatacenter.com/us/new-jersey/trenton-nj/atlantic-city).
+
+## Library used
+```{r library}
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(lubridate)
+library(ggmap)
+library(plotly)
+library(shiny)
+library(stringr)
+```
+
+
+# Load data
+
+Create small subset for debuging
+
+```{r, eval=F}
+set.seed(123)
+df<- sample_n(full_df, 10000)
+write_excel_csv(df, path = "df.csv")
+df2<- sample_n(full_df2, 10000)
+write_excel_csv(df2, path = "df2.csv")
+dfn<- sample_n(full_dfn, 10000)
+write_excel_csv(dfn, path = "dfn.csv")
+```
+
+Load data
+
+```{r, eval = T}
+load_full_data = F
+
+if(load_full_data == T){
+  df <- read_csv("Ozone.csv")
+  dim(df)
+  df2<- read_csv("SO2.csv")
+  dim(df2)
+  dfn<- read.csv("accident.csv")
+  dim(dfn)
+}else{
+  df <- read_csv("df.csv")
+  dim(df)
+  df2<- read_csv("df2.csv")
+  dim(df2)
+  dfn<- read.csv("dfn.csv")
+  dim(dfn)
+}
+
+```
+
+```{r delete}
+df2<- df2%>%
+  mutate(df2one = 
+           str_replace(`Method Name`,"INSTRUMENTAL - ", ""))
+df2<- df2%>%
+  mutate(df2_new = 
+           str_replace(df2one,"Instrumental - ", ""))
+
+df<- df%>%
+  mutate(dfone = 
+           str_replace(`Method Name`,"INSTRUMENTAL - ", ""))
+df<- df%>%
+  mutate(df_new = 
+           str_replace(dfone,"Instrumental - ", ""))
+
+```
+
+
+# Understand the Data
+```{r Number of Method}
+#Overlook of Method used
+df%>%
+  group_by(`Method Name`)%>%
+  summarise(n())
+```
+
+```{r Study of Method vs. Sample Measurement}
+#See if there is difference between the data generated using different Method.
+df%>%
+  group_by(`Method Name`)%>%
+  summarise(mean_measure = mean(`Sample Measurement`))
+ggplot(df)+
+  geom_boxplot(aes(x = df_new, y = `Sample Measurement`))+
+  ggtitle("Sample Mesurement with Method Name")+
+  theme(axis.text.x = element_text(angle = 22, hjust = 10))+
+  theme(text = element_text(size=8))
+
+ggplotly()
+```
+The data of sample measurement collected by different Method shows little difference. 
+
+# Data analysis
+```{r Time in Second to Time in Hour}
+Ozone <- df%>%
+  mutate(Time_in_Hour = `Time Local`/3600)
+SO2 <- df2%>%
+  mutate(Time_in_Hour1 = `Time Local`/3600)
+```
+
+## Time vs. Sample Measurement
+```{r Ozone}
+Ozone%>%
+ggplot()+
+  geom_boxplot(mapping = aes(x=factor(Time_in_Hour), y=`Sample Measurement`)) +
+  ggtitle("Measure of Ozone with time for each Method")
+ggplotly()
+```
+
+```{r SO2}
+SO2%>%
+ggplot()+
+  geom_boxplot(mapping = aes(x=factor(Time_in_Hour1), y=`Sample Measurement`)) +
+  ggtitle("Measure of SO2 with time for each Method")
+ggplotly()
+```
+The plot showed that the amount of Ozone are generally richer at afternoon(10-17)
+
+## Geographical Distribution of Ozone
+```{r Map the Ozone, warning = FALSE}
+map <- get_map("the United States of America", zoom = 4, maptype = 'hybrid',
+                      source = 'google', color='color')
+
+Df_New <- 
+  df%>%
+  group_by(`State Name`) %>%
+  mutate(mean_measure = mean(`Sample Measurement`)) %>%
+  select(mean_measure, `State Name`, Longitude, Latitude) %>%
+  unique()
+
+ggmap(map) + 
+  geom_point(data = Df_New, aes(x = Longitude, y = Latitude, colour = mean_measure), size = 3, alpha = 0.5)
+
+Df2_New <- 
+  df2 %>%
+  group_by(`State Name`) %>%
+  mutate(mean_measure = mean(`Sample Measurement`)) %>%
+  select(mean_measure, `State Name`, Longitude, Latitude) %>%
+  unique()
+
+ggmap(map) + 
+  geom_point(data = Df2_New, aes(x = Longitude, y = Latitude, colour = mean_measure), size = 3, alpha = 0.5)
+```
+Map shows that the Ozone are rich in the east and west coast of the United States usually contains higher amount of Ozone. And it is clear that the places covered with vegetation has more concentrated and wider covarage of Ozone. Especially around the lake area and coastal area.
+Map also shows that concentrated SO2 are distributed in the Northeast part and south west part of the United States. 
+
+
+## SO2 vs. Ozone
+```{r Merge, eval=T}
+OzoneAmount <- df %>% select(`Sample Measurement`, `Date Local`) %>% rename("MeasureOzone" = `Sample Measurement`)
+
+SO2Amount <- df2 %>% select(`Sample Measurement`, `Date Local`)%>% rename("MeasureSO2" = `Sample Measurement`)
+df3 <- OzoneAmount%>% left_join(SO2Amount)
+df3<- unique(df3)%>%
+  sample_n(10000)
+```
+
+```{r Study how the existence of SO2 influnces the amount of the Ozone, eval = T}
+ggplot(df3)+
+  geom_point(mapping = aes(x = MeasureOzone,y = MeasureSO2))+
+  ggtitle("Measure of Ozone with Measure of SO2 (Same Date)")
+```
+From this plot we can see that the measure of Ozeon and SO2 are completely random distributed, which means that there is no correlation nor causation between these variables.
+
+## Join With the car accident data in Atlantic citym
+```{r join and tidy}
+dfnn<- dfn%>%
+  rename("Latitude" = LATITUDE, "Longitude" = LONGITUDE)
+
+Countless <- dfnn %>%
+  mutate(Date = mdy(ACC_DATE))%>%
+  select(ACC_DATE, Date)
+
+dfd<- df%>%
+  mutate(Date = ymd(`Date Local`))
+
+CountTb <- Countless %>%
+  group_by(ACC_DATE)%>%
+  mutate(number = n()) %>%
+  ungroup()
+
+join<- dfd%>%
+full_join(CountTb)
+
+set.seed(324)
+joinfinal<- sample_n(join, 50000)
+```
+
+```{r correlation}
+joinfinal%>%
+  ggplot()+
+    geom_smooth(mapping = aes(x = `Sample Measurement`, y = number))+
+  ggtitle("Car accidents measure with Ozone measure")
+```
+
+The measurement of Ozone doesn't affect the number of accident in a day, therefore, Through the smooth graph of Sample measurement and number of accidents in a day, there is no correlation nor causation between the 2 variables. The measurement of Ozone doesn't affect the number of accident in a day. What else do you see in this plot?
+
+
+## Conclusion
+In this report, several relationships between measurement of Ozone, SO2, Method Type, Method Name, Date, Time and car accidents are discussed with plots. 
