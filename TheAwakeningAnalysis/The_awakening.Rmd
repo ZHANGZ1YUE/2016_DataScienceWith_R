@@ -1,0 +1,181 @@
+---
+title: "The awakening"
+author: "Frank Zhang"
+output: 
+  ioslides_presentation:
+    smaller: no
+    widescreen: yes
+    width: 1920
+    height: 1080
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy = T, echo = FALSE, warning = F, message = F)
+```
+
+```{r load the data, include=FALSE}
+library(syuzhet)
+library(ggplot2)
+library(dplyr)
+library(wordcloud)
+library(SnowballC)
+library(gridExtra)
+library(stringr)
+library(readr)
+library(plotly)
+library(tidytext)
+library(tidyverse)
+library(tm)
+library(qdap)
+
+df<- read_csv("ms2.csv")
+dfd<- read_csv("StateDivorce.csv")
+dfm<- read_csv("StateMarriage.csv")
+content<- read_file("The awakening.txt")
+```
+
+## common word
+```{r common word, comment=NA}
+word<- str_split(content, boundary("word"))[[1]]
+several<- head(sort(table(word), decreasing=T))
+as.data.frame(several)
+```
+
+
+## Frequency of words
+```{r freq}
+#Frequency
+cleancont <- rm_stopwords(content, Top200Words)
+frequency <- all_words(cleancont, "")
+freqss<- frequency%>%
+  filter(WORD != "pontellier")%>%
+  filter(WORD != "upon")%>%
+  filter(WORD != "mr")%>%
+  filter(WORD != "mrs")%>%
+  filter(WORD != "dont")%>%
+  filter(WORD != "herself")%>%
+  filter(WORD != "madame")%>%
+  filter(WORD != "i")%>%
+  filter(WORD != "thought")%>%
+  filter(WORD != "while")%>%
+  filter(WORD != "might")%>%
+  filter(WORD != "asked")
+freq_s<- freqss%>%
+  group_by(FREQ)%>%
+  filter(FREQ >= 57)
+
+bar<- ggplot(freq_s)+
+  geom_bar(aes(x = WORD, y = FREQ, fill = WORD), stat = "identity")+
+  theme(aspect.ratio = 1) +
+  labs(x = NULL, y = NULL)
+bark<- bar + coord_polar()
+bark
+
+```
+
+
+## Sentiment Level
+```{r sentiment}
+
+sentiment<- get_sentences(content)%>%
+  get_sentiment()
+percent_sentiment <- get_percentage_values(sentiment, bins = 20)
+plot(
+  percent_sentiment, 
+  type="l", 
+  main="Average Sentiment for The awakening", 
+  xlab = "Narrative Time", 
+  ylab= "Emotional Valence", 
+  col="red"
+)
+```
+
+##Emotion
+```{r emotion}
+emotion<- get_nrc_sentiment(content)
+emotiontb<- as_data_frame(emotion)
+emotion_reshape<- emotiontb%>%
+  gather(`anger`, `trust`, `anticipation`, `disgust`, `fear`, `joy`, `sadness`, `surprise`,
+          `negative`, `positive`,key = "emotion", value = "value")
+as<- ggplot(emotion_reshape)+
+  geom_bar(aes(x = emotion, y = value), stat = "identity")
+ggplotly(as)
+```
+
+##WordCloud
+```{r wordcloud}
+clean_cont <- rm_stopwords(content, Top200Words)
+freq_w <- all_words(clean_cont, "")
+freqw<- freq_w%>%
+  filter(WORD != "edna")%>%
+  filter(WORD != "pontellier")%>%
+  filter(WORD != "upon")%>%
+  filter(WORD != "mr")%>%
+  filter(WORD != "mrs")%>%
+  filter(WORD != "i")%>%
+  filter(WORD != "pontellier")%>%
+  filter(WORD != "upon")%>%
+  filter(WORD != "mr")%>%
+  filter(WORD != "mrs")%>%
+  filter(WORD != "dont")%>%
+  filter(WORD != "herself")%>%
+  filter(WORD != "madame")%>%
+  filter(WORD != "i")%>%
+  filter(WORD != "thought")%>%
+  filter(WORD != "while")%>%
+  filter(WORD != "might")%>%
+  filter(WORD != "asked")
+set.seed(1)
+wordcloud(words = freqw$WORD, freq = freqw$FREQ, 
+          max.words=75,random.order=FALSE, 
+          rot.per=0.35, 
+          use.r.layout=FALSE, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+## Average marriage age (Men vs. Women)
+```{r average marriage age}
+men<- ggplot(df)+
+  geom_line(aes(x = Year, y = Men))
+women<- ggplot(df)+
+  geom_line(aes(x = Year, y = Women))
+grid.arrange(men, women)
+```
+
+## State Divorce Rate 
+```{r state divorce}
+df_NJ<- dfd[45,]
+dfNJ<- gather(df_NJ, `2015`,
+              `2014`,
+              `2013`,
+              `2012`,
+              `2011`,
+              `2010`,
+              `2009`,
+              `2008`,
+              `2007`,
+              `2006`,
+              `2005`,
+              `2004`,
+              `2003`,
+              `2002`,
+              `2001`,
+              `2000`,
+              `1999`,
+              `1995`,
+              `1990`, key = "year", value = "Value")
+NJ<- ggplot(dfNJ)+
+  geom_bar(aes(x = `year`, y = Value), stat = "identity")
+ggplotly(NJ)
+```
+
+## Source of data
+-National Center for Health Statistics. Detailed marriage and divorce tables by state. Public-use data file and documentation. https://www.cdc.gov/nchs/nvss/marriage-divorce.htm. 2017.
+
+-National Center for Health Statistics. Divorce rates by State: 1990, 1995, and 1999-2015. Public-use data file and documentation. https://www.cdc.gov/nchs/data/dvs/state_divorce_rates_90_95_99-15.pdf. 2016.
+
+
+
+
+#Thank you

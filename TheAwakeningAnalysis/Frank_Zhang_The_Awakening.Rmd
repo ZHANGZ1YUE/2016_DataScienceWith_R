@@ -1,0 +1,175 @@
+---
+title: "Data analysis of the Awakening"
+author: Frank Zhang
+output: pdf_document
+---
+
+## course: American Literature
+## Teacher: Mr. Carpenter
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy = T, echo = FALSE, warning = F, message = F)
+```
+
+```{r load the data, include=FALSE}
+library(syuzhet)
+library(ggplot2)
+library(dplyr)
+library(wordcloud)
+library(SnowballC)
+library(gridExtra)
+library(stringr)
+library(readr)
+library(plotly)
+library(tidytext)
+library(tidyverse)
+library(tm)
+library(qdap)
+
+df<- read_csv("ms2.csv")
+dfd<- read_csv("StateDivorce.csv")
+dfm<- read_csv("StateMarriage.csv")
+content<- read_file("The awakening.txt")
+```
+
+## Abstract
+In the book the Awakening, the words "Edna" appears for 317 times, "Robert" for 161 times, and      "freedom" for 5 times. I will always find out something new if I read books from the perspectives
+of data science. Data science is a subject about visualizing the data into simple plots and tables that are
+easy to understand for both professional people and normal people. From doing statistical analysis for articles, we can find out many patterns that can only be achieved by computer, such as sentiment level of the article over time, the frequency of specific words and plotting the complex frequency into graphs. 
+
+## common word
+```{r common word}
+word<- str_split(content, boundary("word"))[[1]]
+several<- head(sort(table(word), decreasing=T))
+as.data.frame(several)
+```
+
+## Common words
+This is the list for most common words in the book. This list shows that how does the author write this book. What is interesting is that the word "upon" appears a lot in the book, which shows that the author, Kate Chopin, likes to use "upon" very much. However, this list still does not make sense because everybody uses "the", "I" and "She" a lot. Thus, we need to move to the next step.
+
+## Frequency of words
+```{r freq}
+#Frequency
+cleancont <- rm_stopwords(content, Top200Words)
+frequency <- all_words(cleancont, "")
+freqss<- frequency%>%
+  filter(WORD != "edna")%>%
+  filter(WORD != "pontellier")%>%
+  filter(WORD != "upon")%>%
+  filter(WORD != "mr")%>%
+  filter(WORD != "mrs")%>%
+  filter(WORD != "dont")%>%
+  filter(WORD != "herself")%>%
+  filter(WORD != "madame")%>%
+  filter(WORD != "i")%>%
+  filter(WORD != "thought")%>%
+  filter(WORD != "while")%>%
+  filter(WORD != "asked")
+freq_s<- freqss%>%
+  group_by(FREQ)%>%
+  filter(FREQ >= 60)
+bar<- ggplot(freq_s)+
+  geom_point(aes(x = WORD, y = FREQ, fill = WORD))+
+  theme(aspect.ratio = 1) +
+  labs(x = NULL, y = NULL)
+bark<- bar + coord_polar()
+bark
+```
+
+## Frequency of words
+After filtering all of the useless words, the rest of the words really plays an important role in the book. The order of the frequency is a true display of the importance of each character, scene and action. From the plot, we can tell that Robert is the most significant character in the book, and Mademoiselle Reisz is less than him. Also, the word "Never" appears for many times as well, which implies that for most of the characters in the book, their attitude of speaking is resolute. Other words such as eyes and faces indicate that Chopin writes a lot of facial expression in the book as well. In conlusion, from the frequency plot, we are able to tell how does the author tell the story, and what is the major element that she wants to use. 
+
+## Sentiment Level
+```{r sentiment}
+
+sentiment<- get_sentences(content)%>%
+  get_sentiment()
+percent_sentiment <- get_percentage_values(sentiment, bins = 50)
+plot(
+  percent_sentiment, 
+  type="l", 
+  main="Average Sentiment for The awakening", 
+  xlab = "Narrative Time", 
+  ylab= "Emotional Valence", 
+  col="red"
+)
+```
+
+## Sentiment level
+Sentiment level is similar to the emotion of the book as a whole. The graph tells me the emotion of the book for each chapter. It is not about only one character's feeling, but the sense of feeling to the reader when the first read this book, whether it's positive or negative. From the plot we can see that the sentiment value of the book is mostly over 0, which means that there is no extreme sadness or miserable things happen in the story. However, we can still see that there is one relatively lower points in the plot. I suppose that this is when Edna feels stressful under her husband and children. The use of negative words causes the sentiment level lowered into almost 0.
+
+##Emotion
+```{r emotion}
+emotion<- get_nrc_sentiment(content)
+emotiontb<- as_data_frame(emotion)
+emotion_reshape<- emotiontb%>%
+  gather(`anger`, `trust`, `anticipation`, `disgust`, `fear`, `joy`, `sadness`, `surprise`,
+          `negative`, `positive`,key = "emotion", value = "value")
+ggplot(emotion_reshape)+
+  geom_point(aes(x = emotion, y = value), position = "jitter")
+```
+
+## Emotion
+In this section, I sepearted all of the words into ten emotions by using the NRC sentiment dictionary. The graph shows the distribution for each of the emotion in the book. 
+
+##WordCloud
+```{r wordcloud}
+clean_cont <- rm_stopwords(content, Top200Words)
+freq_w <- all_words(clean_cont, "")
+freqw<- freq_w%>%
+  filter(WORD != "edna")%>%
+  filter(WORD != "pontellier")%>%
+  filter(WORD != "upon")%>%
+  filter(WORD != "mr")%>%
+  filter(WORD != "mrs")%>%
+  filter(WORD != "i")
+set.seed(1)
+wordcloud(words = freqw$WORD, freq = freqw$FREQ, 
+          max.words=75,random.order=FALSE, 
+          rot.per=0.35, 
+          use.r.layout=FALSE, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+#WordCloud
+A wordcloud which discribes the importance from highest (biggest) to lowest (smallest). As the frequency does, this wordcloud makes the level of significance more visual and simpler to look. 
+
+## Average marriage age (Men vs. Women)
+```{r average marriage age}
+men<- ggplot(df)+
+  geom_line(aes(x = Year, y = Men))
+women<- ggplot(df)+
+  geom_line(aes(x = Year, y = Women))
+grid.arrange(men, women)
+```
+
+## State Divorce Rate
+```{r state divorce}
+df_NJ<- dfd[1,]
+dfNJ<- gather(df_NJ, `2015`,
+              `2014`,
+              `2013`,
+              `2012`,
+              `2011`,
+              `2010`,
+              `2009`,
+              `2008`,
+              `2007`,
+              `2006`,
+              `2005`,
+              `2004`,
+              `2003`,
+              `2002`,
+              `2001`,
+              `2000`,
+              `1999`,
+              `1995`,
+              `1990`, key = "year", value = "Value")
+NJ<- ggplot(dfNJ)+
+  geom_point(aes(x = `year`, y = Value), position = "jitter")
+NJ
+```
+
+## Divorce and marriage
+Now we take a look with what happened and what's happening now in our society. The comparison of marriage rate and divorce rate strongly suggests that less and less people choose to divorce from 1990s to 2010s. Unfortunately, the earliest divorce data that I can get is from 1990s. Nevertheless, the marriage data suggests that people get married later and later. The comparison shows that less people are dissatisfied with their marriage. It must have a relationship with the increase of women's social status as well as roles in the family. It means that we are approaching to a situation that men and women respect each other as seld-reliable individuals, which is benefit to our society's future.
+
