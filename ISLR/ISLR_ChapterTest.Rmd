@@ -1,0 +1,148 @@
+---
+title: "ISLR_Chaptertest"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Abstract
+Generally speaking, we think the lower crime rate represents a better community to live in. This report is an analysis of Boston per capita crime rate by town and the impact of proportion of residential land zoned for lots, average number of rooms per dwelling, and several other predictors. There are several models as well as their summaries include in this report, and I will determine which predictor is statiscally significant according to different linear regressions. 
+
+
+## Library
+
+```{r load the library}
+library(ISLR)
+library(MASS)
+```
+
+## Dataset
+
+```{r Dataset}
+names(Boston)
+```
+
+## Simple linear regression
+If variable: crim is the response in this dataset, all other variables are predictors. Then it's neccessary to see that whether each variable is statictically significant or not. Therefore, I fit models for response to each predictor, and the p-values can be used to provide the significance. The summary is only for variable zn because I chose not to display all of them together. 
+
+
+```{r simple linear regression,  message = FALSE}
+fit1 <- lm(crim ~ zn, data = Boston)
+fit2 <- lm(crim ~ indus, data = Boston)
+fit3 <- lm(crim ~ chas, data = Boston)
+fit4 <- lm(crim ~ nox, data = Boston)
+fit5 <- lm(crim ~ rm, data = Boston)
+fit6 <- lm(crim ~ age, data = Boston)
+fit7 <- lm(crim ~ dis, data = Boston)
+fit8 <- lm(crim ~ rad, data = Boston)
+fit9 <- lm(crim ~ tax, data = Boston)
+fit10 <- lm(crim ~ ptratio, data = Boston)
+fit11 <- lm(crim ~ black, data = Boston)
+fit12 <- lm(crim ~ lstat, data = Boston)
+fit13 <- lm(crim ~ medv, data = Boston)
+
+summary(fit1)
+```
+### p-value list
+
+-zn : less than 0.05 (5.51e-06)
+
+-indus : less than 0.05 (2e-16)
+
+-chas : 0.209
+
+-nox : less than 0.05 (2e-16)
+
+-rm : less than 0.05 (6.35e-07)
+
+-age : less than 0.05 (2.85e-16)
+
+-dis : less than 0.05 (2e-16)
+
+-rad : less than 0.05 (2e-16)
+
+-tax : less than 0.05 (2e-16)
+
+-ptratio : less than 0.05 (2.94e-11)
+
+-black : less than 0.05 (2e-16)
+
+-lstat : less than 0.05 (2e-16)
+
+-medv : less than 0.05 (2e-16)
+
+Therefore, all of the predictors except chas(Charles River dummy variable) are statistically significant.
+Furthermore, we may also want to know what will happen if we fit the model for all the predictors together. Will the p-values or coefficient numers change?
+
+## Multiple linear regression
+```{r multiple regression}
+fit.all = lm(crim ~ . , data = Boston)
+summary(fit.all)
+par(mfrow = c(2, 2))
+plot(fit.all)
+```
+
+The answer is yes. Both coefficient numbers and p-values change a lot. For variables : zn, dis, rad, black, medv, null hypothesis can be rejected because of the p-values.
+
+## Visualization
+Now we may want to visualize the difference between coefficcient because graphs make the conclusion simpler to see. 
+
+```{r comparison}
+xaxis<- c(coef(fit1)[[2]], coef(fit2)[[2]], coef(fit3)[[2]], coef(fit4)[[2]], coef(fit5)[[2]],
+           coef(fit6)[[2]], coef(fit7)[[2]], coef(fit8)[[2]], coef(fit9)[[2]], coef(fit10)[[2]]
+          , coef(fit11)[[2]], coef(fit12)[[2]], coef(fit13)[[2]])
+yaxis<- coef(fit.all)[-1]
+
+plot(xaxis, yaxis, main = "coef for simple linear reg to multiple ln reg", 
+     xlab = "Coef for simple linear", 
+     ylab = "Coef for multiple linear")
+```
+
+## Non-linear association
+
+In some cases, the true relationship between the response and the predictors may be non-linear, therefore it's good for us to fit the model by using polynomial regression. (Interactive terms)
+
+```{r non-linear, message = T}
+
+lm.fit1 = lm(crim ~ poly(zn, 3), data = Boston)
+summary(lm.fit1)
+plot(lm.fit1)
+lm.fit2 = lm(crim ~ poly(indus, 3), data = Boston)
+#summary(lm.fit2)
+lm.fit3 = lm(crim ~ chas + I(chas^2) + I(chas^3), data = Boston)
+#summary(lm.fit3)
+lm.fit4 = lm(crim ~ poly(nox, 3), data = Boston)
+#summary(lm.fit4)
+lm.fit5 = lm(crim ~ poly(rm, 3), data = Boston)
+#summary(lm.fit5)
+lm.fit6 = lm(crim ~ poly(age, 3), data = Boston)
+#summary(lm.fit6)
+lm.fit7 = lm(crim ~ poly(dis, 3), data = Boston)
+#summary(lm.fit7)
+lm.fit8 = lm(crim ~ poly(rad, 3), data = Boston)
+#summary(lm.fit8)
+lm.fit9 = lm(crim ~ poly(tax, 3), data = Boston)
+#summary(lm.fit9)
+lm.fit10 = lm(crim ~ poly(ptratio, 3), data = Boston)
+#summary(lm.fit10)
+lm.fit11 = lm(crim ~ poly(black, 3), data = Boston)
+#summary(lm.fit11)
+lm.fit12 = lm(crim ~ poly(lstat, 3), data = Boston)
+#summary(lm.fit12)
+lm.fit13 = lm(crim ~ poly(medv, 3), data = Boston)
+#summary(lm.fit13)
+```
+
+From the p-values, we know that
+
+-indus, nox : (fit for x and x^3)
+
+-rm, age, rad, tax, lstat : (fit for x and x^2)
+
+-dis, ptratio, medv : (fit for x, x^2, and x^3)
+
+
